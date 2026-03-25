@@ -1,0 +1,15 @@
+{% extends 'catalog/base.html' %}
+
+{% block content %}
+    <h1>Каталог столов</h1>
+    <ul>
+        {% for table in tables %}
+            <li>
+                <a href="{% url 'catalog:table_detail' table.pk %}">{{ table.brand }}</a> 
+                ({{ table.material }})
+            </li>
+        {% empty %}
+            <li>Товаров пока нет.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

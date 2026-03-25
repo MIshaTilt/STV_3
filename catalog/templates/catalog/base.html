@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Каталог столов</title>
+</head>
+<body>
+    <nav>
+        <a href="{% url 'catalog:table_list' %}">Главная (Каталог)</a> | 
+        <a id="about-link" href="{% url 'catalog:about' %}">О проекте</a>
+    </nav>
+    <hr>
+    {% block content %}
+    {% endblock %}
+</body>
+</html>

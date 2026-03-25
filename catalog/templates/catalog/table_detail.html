@@ -1,0 +1,18 @@
+{% extends 'catalog/base.html' %}
+
+{% block content %}
+    <!-- Этот тег h1 нужен для второго теста -->
+    <h1 id="product-title">Детальное описание: {{ table.brand }}</h1>
+    
+    <ul>
+        <li><b>Марка:</b> {{ table.brand }}</li>
+        <li><b>Материал:</b> {{ table.get_material_display }}</li>
+        <li><b>Складной:</b> {% if table.is_foldable %}Да{% else %}Нет{% endif %}</li>
+        <li><b>Длина:</b> {{ table.length }} см</li>
+        <li><b>Ширина:</b> {{ table.width }} см</li>
+        <li><b>Площадь:</b> {{ table.table_area }} кв. см</li>
+        {% if table.weight %}
+            <li><b>Вес:</b> {{ table.weight }} кг</li>
+        {% endif %}
+    </ul>
+{% endblock %}

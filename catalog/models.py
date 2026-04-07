@@ -1,9 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 # Кастомный менеджер (Требования 6 и 7)
+
+
 class TableManager(models.Manager):
     def by_material(self, material_name):
         """Возвращает столы только определенного материала"""
@@ -37,14 +38,16 @@ class Table(models.Model):
 
     # НОВЫЕ ПОЛЯ (Цены и опт)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=1000.00, verbose_name="Цена за 1 шт")
-    
-    small_wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, default=950.00, verbose_name="Цена (мелкий опт)")
+
+    small_wholesale_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=950.00, verbose_name="Цена (мелкий опт)")
     small_wholesale_threshold = models.PositiveIntegerField(default=10, verbose_name="Мелкий опт от (шт)")
-    
-    large_wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, default=900.00, verbose_name="Цена (крупный опт)")
+
+    large_wholesale_price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=900.00, verbose_name="Цена (крупный опт)")
     large_wholesale_threshold = models.PositiveIntegerField(default=50, verbose_name="Крупный опт от (шт)")
 
-    objects = TableManager() # Из прошлой практики
+    objects = TableManager()  # Из прошлой практики
 
     @property
     def table_area(self) -> float:
@@ -58,6 +61,7 @@ class Table(models.Model):
         return f"Стол {self.brand}"
 
 # НОВЫЕ МОДЕЛИ ДЛЯ КОРЗИНЫ / ПАРТИИ
+
 
 class Order(models.Model):
     """Партия товара (Корзина), закрепленная за менеджером"""
@@ -75,11 +79,12 @@ class Order(models.Model):
         total = self.total_base_cost
         # Например: если заказ больше 50 000 руб, даем еще 5% скидки сверху
         if total > 50000:
-            return float(total) * 0.95 
+            return float(total) * 0.95
         return float(total)
 
     def __str__(self):
         return f"Партия #{self.id} (Менеджер: {self.manager.username})"
+
 
 class OrderItem(models.Model):
     """Позиция в партии"""

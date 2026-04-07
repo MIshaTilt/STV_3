@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from catalog.models import Table, TableMaterial
 
+
 class RoutesTest(TestCase):
     @classmethod
     def setUpTestData(cls):

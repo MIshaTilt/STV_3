@@ -2,12 +2,13 @@ from django.test import TestCase
 from django.urls import reverse
 from catalog.models import Table, TableMaterial
 
+
 class ContentTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.mat1 = TableMaterial.objects.create(name="Дерево")
         cls.mat2 = TableMaterial.objects.create(name="Стекло")
-        
+
         cls.table1 = Table.objects.create(brand="A_Wood", length=100, width=50, weight=20, material=cls.mat1)
         cls.table2 = Table.objects.create(brand="B_Glass", length=90, width=90, weight=None, material=cls.mat2)
 
@@ -43,11 +44,11 @@ class ContentTest(TestCase):
     def test_about_contains_text(self):
         response = self.client.get(reverse('catalog:about'))
         # Текст должен совпадать с тем, что у тебя в about.html
-        self.assertContains(response, "О проекте") 
+        self.assertContains(response, "О проекте")
 
     # TC-08: Пустой список товаров
     def test_list_empty_is_correct(self):
-        Table.objects.all().delete() # Удаляем все столы
+        Table.objects.all().delete()  # Удаляем все столы
         response = self.client.get(reverse('catalog:table_list'))
         self.assertEqual(len(response.context['tables']), 0)
         # Проверяем, что шаблон корректно отрендерил пустой список

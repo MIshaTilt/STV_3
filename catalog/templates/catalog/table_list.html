@@ -2,11 +2,32 @@
 
 {% block content %}
     <h1>Каталог столов</h1>
+    
+    <!-- Если юзер - товаровед (имеет право add_table), показываем кнопку -->
+    {% if perms.catalog.add_table %}
+        <a href="{% url 'catalog:table_add' %}"><button>Добавить товар (Товаровед)</button></a>
+    {% endif %}
+
+    <!-- Если юзер авторизован (допустим, менеджер), показываем Корзину -->
+    {% if user.is_authenticated %}
+        <a href="{% url 'catalog:my_orders' %}"><button>Мои партии (Корзина)</button></a>
+    {% endif %}
+
     <ul>
         {% for table in tables %}
             <li>
                 <a href="{% url 'catalog:table_detail' table.pk %}">{{ table.brand }}</a> 
-                ({{ table.material.name }})
+                - Цена: {{ table.price }} руб.
+
+                <!-- Кнопка корзины только для менеджеров -->
+                {% if perms.catalog.add_order %}
+                    <a href="{% url 'catalog:add_to_cart' table.pk %}"><button>В корзину</button></a>
+                {% endif %}
+
+                <!-- Кнопка редактирования только для товароведа -->
+                {% if perms.catalog.change_table %}
+                    <a href="{% url 'catalog:table_edit' table.pk %}">[Редактировать]</a>
+                {% endif %}
             </li>
         {% empty %}
             <li>Товаров пока нет.</li>

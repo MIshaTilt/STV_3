@@ -1,0 +1,19 @@
+{% extends 'catalog/base.html' %}
+
+{% block content %}
+    <h1>Мои партии (Корзина)</h1>
+    <ul>
+        {% for order in orders %}
+            <li>
+                <h3>Партия #{{ order.id }} - Итого: {{ order.final_total }} руб.</h3>
+                <ul>
+                    {% for item in order.items.all %}
+                        <li>{{ item.table.brand }} — {{ item.quantity }} шт. (Сумма: {{ item.get_cost }} руб.)</li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% empty %}
+            <li>У вас пока нет партий.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

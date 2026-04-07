@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
+from django.contrib.auth.models import User
 
 # Кастомный менеджер (Требования 6 и 7)
 class TableManager(models.Manager):
@@ -26,42 +27,73 @@ class TableMaterial(models.Model):
 
 
 class Table(models.Model):
-    # Поля с валидаторами (для Тестов 1 и 2)
-    brand = models.CharField(max_length=100, unique=True, verbose_name="Марка") # unique для теста 2
+    # ... (старые поля оставляем: brand, is_foldable, length, width, material, weight) ...
+    brand = models.CharField(max_length=100, unique=True, verbose_name="Марка")
     is_foldable = models.BooleanField(default=False, verbose_name="Складной")
-    
-    # MinValueValidator для проверки на уровне Python (Тест 1)
     length = models.FloatField(validators=[MinValueValidator(0.1)], verbose_name="Длина (см)")
     width = models.FloatField(validators=[MinValueValidator(0.1)], verbose_name="Ширина (см)")
-    
-    # Связь с таблицей материалов. on_delete=models.PROTECT (Тест 3)
-    material = models.ForeignKey(TableMaterial, on_delete=models.PROTECT, verbose_name="Материал")
-    
+    material = models.ForeignKey('TableMaterial', on_delete=models.PROTECT, verbose_name="Материал")
     weight = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0.1)], verbose_name="Вес (кг)")
 
-    # Подключаем кастомный менеджер
-    objects = TableManager()
+    # НОВЫЕ ПОЛЯ (Цены и опт)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=1000.00, verbose_name="Цена за 1 шт")
+    
+    small_wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, default=950.00, verbose_name="Цена (мелкий опт)")
+    small_wholesale_threshold = models.PositiveIntegerField(default=10, verbose_name="Мелкий опт от (шт)")
+    
+    large_wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, default=900.00, verbose_name="Цена (крупный опт)")
+    large_wholesale_threshold = models.PositiveIntegerField(default=50, verbose_name="Крупный опт от (шт)")
 
-    # 1-е Вычисляемое свойство (Тест 4)
+    objects = TableManager() # Из прошлой практики
+
     @property
     def table_area(self) -> float:
         return self.length * self.width
 
-    # 2-е Вычисляемое свойство (Тест 5)
     @property
     def is_heavy(self) -> bool:
-        if self.weight:
-            return self.weight > 20.0
-        return False
+        return self.weight > 20.0 if self.weight else False
 
     def __str__(self):
         return f"Стол {self.brand}"
 
-    class Meta:
-        verbose_name = "Стол"
-        verbose_name_plural = "Столы"
-        # Constraint на уровне БД (Тест 8). Нельзя сохранить отрицательную длину даже в обход валидаторов
-        constraints = [
-            models.CheckConstraint(check=models.Q(length__gt=0), name='check_positive_length'),
-            models.CheckConstraint(check=models.Q(width__gt=0), name='check_positive_width'),
-        ]
+# НОВЫЕ МОДЕЛИ ДЛЯ КОРЗИНЫ / ПАРТИИ
+
+class Order(models.Model):
+    """Партия товара (Корзина), закрепленная за менеджером"""
+    manager = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Менеджер")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+
+    @property
+    def total_base_cost(self):
+        """Сумма партии до применения глобальной скидки"""
+        return sum(item.get_cost() for item in self.items.all())
+
+    @property
+    def final_total(self):
+        """Итоговая сумма с учетом дополнительной скидки на общую сумму (Творческое задание)"""
+        total = self.total_base_cost
+        # Например: если заказ больше 50 000 руб, даем еще 5% скидки сверху
+        if total > 50000:
+            return float(total) * 0.95 
+        return float(total)
+
+    def __str__(self):
+        return f"Партия #{self.id} (Менеджер: {self.manager.username})"
+
+class OrderItem(models.Model):
+    """Позиция в партии"""
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+    table = models.ForeignKey(Table, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+
+    def get_cost(self):
+        """Расчет стоимости позиции с учетом оптовых порогов"""
+        if self.quantity >= self.table.large_wholesale_threshold:
+            return self.quantity * self.table.large_wholesale_price
+        elif self.quantity >= self.table.small_wholesale_threshold:
+            return self.quantity * self.table.small_wholesale_price
+        return self.quantity * self.table.price
+
+    def __str__(self):
+        return f"{self.table.brand} x {self.quantity}"

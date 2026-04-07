@@ -6,7 +6,7 @@
         {% for table in tables %}
             <li>
                 <a href="{% url 'catalog:table_detail' table.pk %}">{{ table.brand }}</a> 
-                ({{ table.material }})
+                ({{ table.material.name }})
             </li>
         {% empty %}
             <li>Товаров пока нет.</li>

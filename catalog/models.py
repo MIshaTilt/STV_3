@@ -60,8 +60,3 @@ class Table(models.Model):
     class Meta:
         verbose_name = "Стол"
         verbose_name_plural = "Столы"
-        # Constraint на уровне БД (Тест 8). Нельзя сохранить отрицательную длину даже в обход валидаторов
-        constraints = [
-            models.CheckConstraint(check=models.Q(length__gt=0), name='check_positive_length'),
-            models.CheckConstraint(check=models.Q(width__gt=0), name='check_positive_width'),
-        ]

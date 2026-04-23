@@ -10,19 +10,27 @@ class ContentTest(TestCase):
         cls.mat_wood = TableMaterial.objects.create(name="Дерево")
         cls.mat_glass = TableMaterial.objects.create(name="Стекло")
         
-        # Создаем столы с РАЗНЫМИ параметрами для проверки сортировки
-        # Вес (weight) - необязательное поле. Длина (length) - обязательное.
-        cls.table_a = Table.objects.create(brand="A_Wood_Table", length=150.0, width=80.0, weight=25.0, material=cls.mat_wood)
-        cls.table_b = Table.objects.create(brand="B_Glass_Table", length=90.0, width=90.0, weight=None, material=cls.mat_glass)
-        cls.table_c = Table.objects.create(brand="C_Wood_Mini", length=50.0, width=50.0, weight=5.0, material=cls.mat_wood)
+        # ИЗМЕНЕНИЕ: Создаем столы в обратном/случайном порядке, чтобы убедиться, 
+        # что тесты не зависят от порядка их добавления в БД.
+        cls.table_c = Table.objects.create(
+            brand="C_Wood_Mini", length=50.0, width=50.0, weight=5.0, material=cls.mat_wood
+        )
+        cls.table_b = Table.objects.create(
+            brand="B_Glass_Table", length=90.0, width=90.0, weight=None, material=cls.mat_glass
+        )
+        cls.table_a = Table.objects.create(
+            brand="A_Wood_Table", length=150.0, width=80.0, weight=25.0, material=cls.mat_wood
+        )
 
     # TC-02: Список содержит объекты
     def test_list_context_objects_not_empty(self):
         response = self.client.get(reverse('catalog:table_list'))
         self.assertIn('tables', response.context)
-        # Проверяем, что передается именно QuerySet и он не пуст
+        # Проверяем, что передается именно QuerySet
         self.assertIsInstance(response.context['tables'], QuerySet)
-        self.assertEqual(len(response.context['tables']), 3)
+        # Динамически проверяем количество (тест не упадет, если добавить 4-й стол)
+        expected_count = Table.objects.count()
+        self.assertEqual(len(response.context['tables']), expected_count)
 
     # TC-03: Фильтрация по типу
     def test_list_filter_by_type_expected(self):
@@ -31,7 +39,10 @@ class ContentTest(TestCase):
         response = self.client.get(url, {'type': self.mat_wood.pk})
         tables = response.context['tables']
         
-        self.assertEqual(len(tables), 2) # У нас 2 деревянных стола
+        # Динамически считаем количество деревянных столов в БД
+        expected_count = Table.objects.filter(material=self.mat_wood).count()
+        self.assertEqual(len(tables), expected_count)
+        
         for table in tables:
             self.assertEqual(table.material, self.mat_wood)
 
@@ -40,14 +51,14 @@ class ContentTest(TestCase):
         url = reverse('catalog:table_detail', args=[self.table_a.pk])
         response = self.client.get(url)
         self.assertIn('table', response.context)
-        self.assertEqual(response.context['table'].brand, "A_Wood_Table")
+        self.assertEqual(response.context['table'].brand, self.table_a.brand)
 
     # TC-07: About содержит текст
     def test_about_contains_text_expected(self):
         response = self.client.get(reverse('catalog:about'))
         self.assertContains(response, "О проекте", status_code=200)
 
-    # TC-08: Пустой список товаров (создаем пустую БД прямо в тесте)
+    # TC-08: Пустой список товаров
     def test_list_empty_expected(self):
         Table.objects.all().delete() # Очищаем столы
         response = self.client.get(reverse('catalog:table_list'))
@@ -65,26 +76,39 @@ class ContentTest(TestCase):
     def test_list_sort_default_by_brand(self):
         response = self.client.get(reverse('catalog:table_list'))
         tables = list(response.context['tables'])
-        # Ожидаем порядок A, B, C
-        self.assertEqual(tables[0], self.table_a)
-        self.assertEqual(tables[2], self.table_c)
+        
+        # Извлекаем все бренды и проверяем, что они отсортированы по алфавиту.
+        # Тест пройдет, даже если добавится "BB_Glass_Table".
+        brands = [t.brand for t in tables]
+        self.assertEqual(brands, sorted(brands))
 
     # ДОП. ТЕСТ: Сортировка по обязательному атрибуту (Длина)
     def test_list_sort_by_required_attr_length(self):
         # ?sort=length
         response = self.client.get(reverse('catalog:table_list'), {'sort': 'length'})
         tables = list(response.context['tables'])
-        # Ожидаем: 50 (table_c), 90 (table_b), 150 (table_a)
-        self.assertEqual(tables[0], self.table_c)
-        self.assertEqual(tables[1], self.table_b)
-        self.assertEqual(tables[2], self.table_a)
+        
+        # Извлекаем длины и проверяем, что список идет по возрастанию
+        lengths = [t.length for t in tables]
+        self.assertEqual(lengths, sorted(lengths))
 
     # ДОП. ТЕСТ: Сортировка по НЕобязательному атрибуту (Вес)
     def test_list_sort_by_optional_attr_weight(self):
         # ?sort=weight
         response = self.client.get(reverse('catalog:table_list'), {'sort': 'weight'})
         tables = list(response.context['tables'])
-        # Ожидаем, что NULL (table_b) будет либо в начале, либо в конце (зависит от БД SQLite).
-        # Проверим, что 5.0 (table_c) идет точно перед 25.0 (table_a)
-        weight_list = [t.weight for t in tables if t.weight is not None]
-        self.assertEqual(weight_list, [5.0, 25.0])
+        
+        # Проверяем, что элементы с заполненным весом отсортированы правильно,
+        # игнорируя позиции NULL-значений (они зависят от БД)
+        weights = [t.weight for t in tables if t.weight is not None]
+        self.assertEqual(weights, sorted(weights))
+        
+    def test_list_sort_by_type(self):
+        # Если передать неразрешенное поле для сортировки (?sort=material__name),
+        # view должно применить fall-back поведение (сортировку по бренду).
+        response = self.client.get(reverse('catalog:table_list'), {'sort': 'material__name'})
+        tables = list(response.context['tables'])
+        
+        # Убеждаемся, что сработало default-поведение и список отсортирован по алфавиту марок
+        brands = [t.brand for t in tables]
+        self.assertEqual(brands, sorted(brands))

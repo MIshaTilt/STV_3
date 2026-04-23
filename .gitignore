@@ -145,3 +145,5 @@ dmypy.json
 
 .mypy_cache
 
+catalog/all_sources.txt
+catalog/gluing-project-contents
